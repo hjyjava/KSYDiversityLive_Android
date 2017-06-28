@@ -8,6 +8,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -37,8 +38,8 @@ import com.ksyun.media.streamer.logstats.StatsLogReport;
 
 import org.lasque.tusdk.core.seles.sources.SelesOutInput;
 import org.lasque.tusdk.core.seles.sources.SelesVideoCameraInterface;
+import org.lasque.tusdk.core.utils.hardware.TuSDKVideoCamera;
 import org.lasque.tusdk.core.utils.hardware.TuSdkStillCameraAdapter;
-import org.lasque.tusdk.core.utils.hardware.TuSdkVideoCamera;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -480,10 +481,9 @@ public class CameraActivity extends Activity implements
 
     private OnAudioRawDataListener mOnAudioRawDataListener = new OnAudioRawDataListener() {
         @Override
-        public short[] OnAudioRawData(short[] data, int count) {
-            Log.d(TAG, "OnAudioRawData data.length=" + data.length + " count=" + count);
+        public short[] OnAudioRawData(short[] shorts, int i, int i1, int i2) {
             //audio pcm data
-            return data;
+            return shorts;
         }
     };
 
@@ -592,7 +592,7 @@ public class CameraActivity extends Activity implements
         mStreamer.setEnableBeauty(isChecked);
     }
 
-    private TuSdkVideoCamera.TuSdkVideoCameraDelegate mVideoCameraDelegate = new TuSdkVideoCamera.TuSdkVideoCameraDelegate()
+    private TuSDKVideoCamera.TuSDKVideoCameraDelegate mVideoCameraDelegate = new TuSDKVideoCamera.TuSDKVideoCameraDelegate()
     {
         @Override
         public void onFilterChanged(SelesOutInput selesOutInput)
@@ -605,6 +605,11 @@ public class CameraActivity extends Activity implements
         @Override
         public void onVideoCameraStateChanged(SelesVideoCameraInterface camera, TuSdkStillCameraAdapter.CameraState newState)
         {
+
+        }
+
+        @Override
+        public void onVideoCameraScreenShot(SelesVideoCameraInterface selesVideoCameraInterface, Bitmap bitmap) {
 
         }
     };
@@ -629,7 +634,6 @@ public class CameraActivity extends Activity implements
     private void onBgmChecked(boolean isChecked) {
         if (isChecked) {
             // use KSYMediaPlayer instead of KSYBgmPlayer
-            mStreamer.getAudioPlayerCapture().setEnableMediaPlayer(true);
             mStreamer.getAudioPlayerCapture().getMediaPlayer()
                     .setOnCompletionListener(new IMediaPlayer.OnCompletionListener() {
                         @Override

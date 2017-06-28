@@ -20,7 +20,6 @@ import com.ksyun.media.streamer.framework.ImgBufFormat;
 import com.ksyun.media.streamer.framework.ImgBufFrame;
 import com.ksyun.media.streamer.framework.SrcPin;
 
-import org.lasque.tusdk.core.seles.output.SelesVideoDataEncoder;
 import org.lasque.tusdk.core.utils.TLog;
 import org.lasque.tusdk.core.utils.TuSdkDate;
 
@@ -33,9 +32,9 @@ import java.nio.ByteBuffer;
  *
  */
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-public class H264VideoCodec extends SelesVideoDataEncoder
+public class H264VideoCodec
 {
-    private final static String TAG = "H264VideoCodec";
+	private final static String TAG = "H264VideoCodec";
 	private TuSdkDate mStartingEncodeTime;
 	private int mFrameCount = 0;
 
@@ -46,7 +45,6 @@ public class H264VideoCodec extends SelesVideoDataEncoder
 	private volatile boolean mSendExtraData;
 
 	public H264VideoCodec() {
-		super();
 
 		mSrcPin = new SrcPin<>();
 	}
@@ -73,8 +71,9 @@ public class H264VideoCodec extends SelesVideoDataEncoder
 	/**
 	 * 处理编码数据
 	 * @param encodedData
+	 * @param bufferInfo
 	 */
-	protected void onEncodedFrameDataAvailable(ByteBuffer encodedData)
+	protected void onEncodedFrameDataAvailable(ByteBuffer encodedData, MediaCodec.BufferInfo bufferInfo)
 	{
 		if (mStartingEncodeTime == null)
 		{
@@ -85,12 +84,13 @@ public class H264VideoCodec extends SelesVideoDataEncoder
 
 		long currentFrameTime = mStartingEncodeTime.diffOfMillis();
 
-		TLog.d("%d frames taken: %s ms", mFrameCount, currentFrameTime);
+		TLog.d("bufferinfo flags : " + bufferInfo.flags);
 
+		TLog.d("%d frames taken: %s ms | mSendExtraData = %s", mFrameCount, currentFrameTime, mSendExtraData);
 		// 这里进行 RTMP 包封装
-		TLog.d("sent " + mBufferInfo.size + " bytes, ts=" +  mBufferInfo.presentationTimeUs);
+		TLog.d("sent " + bufferInfo.size + " bytes, ts=" +  bufferInfo.presentationTimeUs);
 
-		ImgBufFrame outFrame = getOutFrame(encodedData, mBufferInfo);
+		ImgBufFrame outFrame = getOutFrame(encodedData, bufferInfo);
 
 		if (mSendExtraData) {
 			if (mExtraData != null && mSrcPin.isConnected()) {
@@ -108,7 +108,7 @@ public class H264VideoCodec extends SelesVideoDataEncoder
 	private void cacheExtra(ImgBufFrame frame) {
 		//cache the frame with FLAG_CODEC_CONFIG flag
 		if ((frame.flags & AVFrameBase.FLAG_CODEC_CONFIG) != 0) {
-			mExtraData = frame.clone();
+			mExtraData = new ImgBufFrame(frame);
 
 			//copy the buffer of the frame to a new buffer, otherwise it will be overwrite
 			ByteBuffer buffer = ByteBuffer.allocateDirect(frame.buf.limit());

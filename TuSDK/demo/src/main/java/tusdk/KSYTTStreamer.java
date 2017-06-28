@@ -20,7 +20,6 @@ import com.ksyun.media.streamer.filter.audio.AudioResampleFilter;
 import com.ksyun.media.streamer.framework.AVConst;
 import com.ksyun.media.streamer.framework.AudioBufFormat;
 import com.ksyun.media.streamer.kit.KSYStreamer;
-import com.ksyun.media.streamer.kit.KSYStreamerConfig;
 import com.ksyun.media.streamer.kit.OnAudioRawDataListener;
 import com.ksyun.media.streamer.kit.StreamerConstants;
 import com.ksyun.media.streamer.logstats.StatsConstant;
@@ -31,7 +30,7 @@ import com.ksyun.media.streamer.publisher.PublisherMgt;
 import com.ksyun.media.streamer.publisher.RtmpPublisher;
 
 import org.lasque.tusdk.core.utils.hardware.CameraConfigs;
-import org.lasque.tusdk.core.utils.hardware.TuSdkVideoCamera;
+import org.lasque.tusdk.core.utils.hardware.TuSDKVideoCamera;
 
 /**
  * Created by sujia on 2017/1/3.
@@ -73,9 +72,6 @@ public class KSYTTStreamer {
     private boolean mEnableDebugLog = false;
     private boolean mEnableAudioMix = false;
 
-    // compat members
-    private KSYStreamerConfig mConfig;
-
     private KSYTTStreamer.OnInfoListener mOnInfoListener;
     private KSYTTStreamer.OnErrorListener mOnErrorListener;
 
@@ -91,7 +87,7 @@ public class KSYTTStreamer {
     private AudioPreview mAudioPreview;
     private FilePublisher mFilePublisher;
     private PublisherMgt mPublisherMgt;
-    private TuSdkVideoCamera.TuSdkVideoCameraDelegate mVideoCameraDelegate;
+    private TuSDKVideoCamera.TuSDKVideoCameraDelegate mVideoCameraDelegate;
 
     public KSYTTStreamer(Context context, RelativeLayout cameraView) {
         if (context == null) {
@@ -102,31 +98,6 @@ public class KSYTTStreamer {
         initModules();
     }
 
-    /**
-     * Set params to KSYStreamer with {@link KSYStreamerConfig}.
-     *
-     * @param config streamer params
-     * @deprecated
-     */
-    @Deprecated
-    public void setConfig(KSYStreamerConfig config) {
-        if (config == null || mContext == null) {
-            throw new IllegalStateException("method invoking failed " +
-                    "context == null or config == null!");
-        }
-
-        mConfig = config;
-        setUrl(config.getUrl());
-        setTargetResolution(config.getVideoResolution());
-        setTargetFps(config.getFrameRate());
-        setAudioSampleRate(config.getAudioSampleRate());
-        setAudioChannels(config.getAudioChannels());
-        setAudioBitrate(config.getAudioBitrate() * 1000);
-        setEncodeMethod(config.getEncodeMethod());
-        setEnableStreamStatModule(config.isEnableStreamStatModule());
-        setCameraFacing(config.getDefaultFrontCamera() ?
-                CameraCapture.FACING_FRONT : CameraCapture.FACING_BACK);
-    }
 
     private void initModules() {
         //camera
@@ -148,18 +119,18 @@ public class KSYTTStreamer {
 
         // Audio preview
         mAudioPlayerCapture = new AudioPlayerCapture(mContext);
-        mAudioCapture = new AudioCapture();
+        mAudioCapture = new AudioCapture(mContext);
         mAudioResampleFilter = new AudioResampleFilter();
         mAudioFilterMgt = new AudioFilterMgt();
         mAudioMixer = new AudioMixer();
-        mAudioPreview = new AudioPreview();
-        mAudioCapture.mAudioBufSrcPin.connect(mAudioResampleFilter.getSinkPin());
+        mAudioPreview = new AudioPreview(mContext);
+        mAudioCapture.getSrcPin().connect(mAudioResampleFilter.getSinkPin());
         mAudioResampleFilter.getSrcPin().connect(mAudioFilterMgt.getSinkPin());
         mAudioFilterMgt.getSrcPin().connect(mAudioMixer.getSinkPin(0));
         if (mEnableAudioMix) {
             mAudioPlayerCapture.mSrcPin.connect(mAudioMixer.getSinkPin(1));
         }
-        mAudioMixer.getSrcPin().connect(mAudioPreview.mSinkPin);
+        mAudioMixer.getSrcPin().connect(mAudioPreview.getSinkPin());
 
         // encoder
         mAudioEncoderMgt = new AudioEncoderMgt();
@@ -245,8 +216,10 @@ public class KSYTTStreamer {
                     case RtmpPublisher.INFO_CONNECTED:
                         if (!mAudioEncoderMgt.getEncoder().isEncoding()) {
                             mAudioEncoderMgt.getEncoder().start();
+                        } else {
+                            mRtmpPublisher.setAudioExtra(mAudioEncoderMgt.getEncoder().getExtra());
                         }
-                        mAudioEncoderMgt.getEncoder().sendExtraData();
+
                         if (mOnInfoListener != null) {
                             mOnInfoListener.onInfo(
                                     StreamerConstants.KSY_STREAMER_OPEN_STREAM_SUCCESS, 0, 0);
@@ -330,8 +303,11 @@ public class KSYTTStreamer {
                 switch (type) {
                     case FilePublisher.INFO_OPENED:
                         //start audio encoder first
-                        mAudioEncoderMgt.getEncoder().start();
-                        mAudioEncoderMgt.getEncoder().sendExtraData();
+                        if (!mAudioEncoderMgt.getEncoder().isEncoding()) {
+                            mAudioEncoderMgt.getEncoder().start();
+                        } else {
+                            mFilePublisher.setAudioExtra(mAudioEncoderMgt.getEncoder().getExtra());
+                        }
                         if (mOnInfoListener != null) {
                             mOnInfoListener.onInfo(
                                     StreamerConstants.KSY_STREAMER_OPEN_STREAM_SUCCESS, 0, 0);
@@ -1102,7 +1078,7 @@ public class KSYTTStreamer {
      *
      * @param open true to turn on, false to turn off.
      * @return true if success, false if failed or on invalid mState.
-//     * @see #getCameraCapture()
+    //     * @see #getCameraCapture()
      * @see CameraCapture#toggleTorch(boolean)
      */
     public boolean toggleTorch(boolean open) {
@@ -1266,17 +1242,6 @@ public class KSYTTStreamer {
     }
 
     /**
-     * Get KSYStreamerConfig instance previous set by setConfig.
-     *
-     * @return KSYStreamerConfig instance or null.
-     * @deprecated
-     */
-    @Deprecated
-    public KSYStreamerConfig getConfig() {
-        return mConfig;
-    }
-
-    /**
      * @deprecated To implement class extends
      * {@link com.ksyun.media.streamer.filter.audio.AudioFilterBase} and set it to
      * {@link com.ksyun.media.streamer.filter.audio.AudioFilterMgt}.
@@ -1296,22 +1261,12 @@ public class KSYTTStreamer {
     }
 
     /**
-     * Set if enable stat info upstreaming.
-     *
-     * @param enableStreamStatModule true to enable, false to disable.
-     */
-    public void setEnableStreamStatModule(boolean enableStreamStatModule) {
-        mEnableStreamStatModule = enableStreamStatModule;
-        StatsLogReport.getInstance().setIsPermitLogReport(mEnableStreamStatModule);
-    }
-
-    /**
      * Get current sdk version.
      *
      * @return version number as 1.0.0.0
      */
     public static String getVersion() {
-        return StatsConstant.SDK_VERSION_SUB_VALUE;
+        return StatsConstant.SDK_VERSION_VALUE;
     }
 
     /**
@@ -1323,7 +1278,7 @@ public class KSYTTStreamer {
         mTTVideoCamera.release();
     }
 
-    public void setTuSdkVideoCameraDelegate(TuSdkVideoCamera.TuSdkVideoCameraDelegate delegate) {
+    public void setTuSdkVideoCameraDelegate(TuSDKVideoCamera.TuSDKVideoCameraDelegate delegate) {
         mVideoCameraDelegate = delegate;
     }
 

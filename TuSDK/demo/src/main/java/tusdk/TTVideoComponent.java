@@ -7,13 +7,12 @@ import android.widget.RelativeLayout;
 import com.ksyun.media.streamer.framework.ImgBufFrame;
 import com.ksyun.media.streamer.framework.SrcPin;
 
-import org.lasque.tusdk.core.TuSDKStreamingConfiguration;
+import org.lasque.tusdk.core.encoder.video.TuSDKVideoEncoderSetting;
 import org.lasque.tusdk.core.struct.TuSdkSize;
 import org.lasque.tusdk.core.utils.hardware.CameraConfigs;
 import org.lasque.tusdk.core.utils.hardware.InterfaceOrientation;
-import org.lasque.tusdk.core.utils.hardware.TuSdkVideoCamera;
 
-import tusdk.camera.LiveVideoCamera;
+import tusdk.camera.LiveVideoCamera2;
 
 /**
  * Created by sujia on 2017/1/2.
@@ -21,7 +20,7 @@ import tusdk.camera.LiveVideoCamera;
 
 public class TTVideoComponent {
 
-    private LiveVideoCamera liveVideoCamera;
+    private LiveVideoCamera2 liveVideoCamera;
 
     private final static String TAG = "TTVideoComponent";
 
@@ -38,11 +37,11 @@ public class TTVideoComponent {
 
     public TTVideoComponent(Context context,
                             CameraConfigs.CameraFacing facing, RelativeLayout holderView) {
-        liveVideoCamera = new LiveVideoCamera(context, facing, holderView);
+        liveVideoCamera = new LiveVideoCamera2(context, holderView);
 //        videoCamera.callback = mCameraDelegate;
     }
 
-    public void setTuSdkVideoCameraDelegate(TuSdkVideoCamera.TuSdkVideoCameraDelegate delegate) {
+    public void setTuSdkVideoCameraDelegate(LiveVideoCamera2.TuSDKVideoCameraDelegate delegate) {
         if (liveVideoCamera == null)
             return;
 
@@ -53,16 +52,19 @@ public class TTVideoComponent {
         liveVideoCamera.initParams(getVideoStreamingConfiguration());
     }
 
-    private TuSDKStreamingConfiguration getVideoStreamingConfiguration()
+    private TuSDKVideoEncoderSetting getVideoStreamingConfiguration()
     {
-        TuSDKStreamingConfiguration config = new TuSDKStreamingConfiguration();
+        TuSDKVideoEncoderSetting config = new TuSDKVideoEncoderSetting();
         // 说明: 相机的previewSize 和 最后输出的尺寸可能不一致。
         // 编码器会根据 outputSize 对输出作等比例裁剪，保证输出的视频流尺寸和 outputSize 一致
         config.videoSize = new TuSdkSize(mTargetWidth, mTargetHeight);
-        // 码率，该参数目前仅在 _isOuputEncodedStream ＝ true 时有用
-        config.videoBitrate = mVideoBitrate;
-        // 最大帧率
-        config.frameRate = mFrameRate;
+//        // 码率，该参数目前仅在 _isOuputEncodedStream ＝ true 时有用
+//        config.videoBitrate = mVideoBitrate;
+//        // 最大帧率
+//        config.frameRate = mFrameRate;
+
+        config.videoQuality = TuSDKVideoEncoderSetting.VideoQuality.LIVE_MEDIUM2
+                .setBitrate(mVideoBitrate).setFps(mFrameRate);
 
         return config;
     }
@@ -134,7 +136,7 @@ public class TTVideoComponent {
     }
 
     public void setEnableFaceAutoBeauty(boolean enable) {
-        liveVideoCamera.setEnableFaceAutoBeauty(true);
+        liveVideoCamera.setEnableLiveSticker(false);
     }
 
     public void setTargetResolution(int width, int height) {
